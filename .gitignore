@@ -1,0 +1,12 @@
+datasets
+results
+approach.txt
+flickr30k.zip
+github_keys
+data.py
+*__pycache__/
+pretrained
+lightning_logs
+core*
+job.pbs*
+*.pyc
