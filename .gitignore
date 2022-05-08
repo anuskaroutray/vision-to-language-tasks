@@ -10,3 +10,4 @@ lightning_logs
 core*
 job.pbs*
 *.pyc
+notes.txt

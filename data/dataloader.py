@@ -99,7 +99,7 @@ class ImageCaptionDataset(Dataset):
 		if isinstance(words, str):
 			words = [words]
 		
-		one_hot = F.one_hot(torch.tensor(self.vocabulary(words)), num_classes = len(self.vocabulary))
+		one_hot = F.one_hot(torch.tensor(self.vocabulary.lookup_indices(words)), num_classes = len(self.vocabulary))
 		if one_hot.size()[0] > max_length:
 			one_hot = one_hot[:max_length, :]
 		elif one_hot.size()[0] < max_length:
@@ -112,8 +112,8 @@ class ImageCaptionDataset(Dataset):
 
 		concept_vector = torch.zeros((self.num_concepts, 1))
 		for word in words:
-			if self.concept_vocabulary.__contains__(word):
-				concept_vector[self.concept_vocabulary.__getitem__(word)] = 1
+			if self.concept_vocabulary.lookup_indices(word):
+				concept_vector[self.concept_vocabulary.lookup_indices(word)] = 1
 
 		return concept_vector
 

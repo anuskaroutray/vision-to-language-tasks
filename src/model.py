@@ -96,9 +96,6 @@ class ImageCaptioningModel(nn.Module):
         # TODO: Write code for image captioning, i.e., word attention and sentence generation. 
         # NOTE: In this function, return concept vector for concept prediction loss
 
-        
-
-
 
     def semantic_guided_attention(self, concept_set, visual_representation):
         

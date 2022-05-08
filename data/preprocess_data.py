@@ -9,7 +9,8 @@ import os, json, argparse, csv
 from typing import Union, Iterable
 import torchtext
 from torchtext.data.utils import get_tokenizer
-from torchtext.vocab import build_vocab_from_iterator
+# from torchtext.vocab import build_vocab_from_iterator
+from src.vocab import build_vocab_from_iterator
 import torch
 import torch.nn.functional as F
 
@@ -115,6 +116,7 @@ def get_word_frequency(words):
 
     return word_freq
 
+# NOTE: Used to build the general vocabulary
 def preprocess_caption(caption):
 
     caption = re.sub('[^a-zA-Z0-9.?,]', ' ', caption)
@@ -137,6 +139,7 @@ def preprocess_caption(caption):
 
     return caption
 
+# Used for concept vocabulary
 def preprocess_caption_for_concept(caption, tokenizer):
 
     caption = re.sub('[^a-zA-Z0-9.?,]', ' ', caption)
@@ -181,11 +184,11 @@ def build_vocabulary(dataset = "coco", split = "train"):
             captions[i] = preprocess_caption(captions[i])
         corpus.extend(captions)
     
+    # Tokenizer: Converts a string or a sentence into a list of words.
     tokenizer = get_tokenizer("basic_english")
     tokens = [tokenizer(caption) for caption in corpus]
 
-    vocabulary = build_vocab_from_iterator(tokens, min_freq = 5, specials = "<UNK>", special_first = True)
-    vocabulary.set_default_index(0)
+    vocabulary = build_vocab_from_iterator(tokens, min_freq = 5, specials = ("<UNK>"), specials_first = True)
 
     torch.save(vocabulary, f'./datasets/{dataset}/{split}_vocabulary.pth')
 

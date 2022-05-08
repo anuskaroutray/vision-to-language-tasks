@@ -30,6 +30,6 @@ def train(model, train_dataloader, validation_dataloader, args, optimizer = None
 				# tepoch.set_postfix(loss=total_loss/(i+1))
 
 				model.forward(batch["image"].to(device), batch["word_embeddings"].to(device))
-				exit(0)
+				# exit(0)
 	
 	# TODO: Write code for logging
