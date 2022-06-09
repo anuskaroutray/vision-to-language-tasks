@@ -260,7 +260,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', default = 'toronto-cocoqa', type = str, choices=['coco', 'flickr8k', 'flickr30k', 'toronto-cocoqa'])
     parser.add_argument('--data_path', type = str)
-    parser.add_argument('--split', default='train', type = str, choices=['train', 'val', 'test', 'all'])
+    parser.add_argument('--split', default = 'train', type = str, choices=['train', 'val', 'test', 'all'])
     parser.add_argument('--preprocess', default = False, type = bool)
     parser.add_argument('--get_vocab', default = False, type = bool)
     parser.add_argument('--build_concept_vocab', default = False, type = bool)

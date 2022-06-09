@@ -96,8 +96,6 @@ python data/preprocess_data.py --dataset coco --data_path datasets/coco/annotati
 python data/preprocess_data.py --dataset coco --data_path datasets/coco/annotations/captions_train2014.json --split train --build_concept_vocab True --num_concepts 512
 python data/preprocess_data.py --dataset coco --data_path datasets/coco/annotations/captions_train2014.json --split all --build_concept_vocab True --num_concepts 512
 
-
-
 # run data preprocessing toronto-cocoqa
 python data/preprocess_data.py --dataset toronto-cocoqa --data_path datasets/coco/annotations/captions_val2014.json --split val --preprocess True  
 python data/preprocess_data.py --dataset toronto-cocoqa --data_path datasets/coco/annotations/captions_train2014.json --split train --preprocess True
