@@ -48,7 +48,8 @@ class ConceptAndLocalFeaturePredictor(nn.Module):
 class ImageCaptioningModel(nn.Module):
 
     def __init__(self, model_name, input_size = 49, hidden_size = 2048, output_size = 512, 
-                pretrained = False, bidirectional = True, epsilon = 0.6, device = "cpu"):
+                pretrained = False, bidirectional = True, epsilon = 0.6, device = "cpu",
+                vocab_size = 7000, word_hidden_size = 512):
         super(ImageCaptioningModel, self).__init__()
 
         self.model_name = model_name
@@ -59,7 +60,10 @@ class ImageCaptioningModel(nn.Module):
         self.bidirectional = bidirectional
         self.epsilon = epsilon
         self.device = device
-        
+
+        self.vocab_size = vocab_size
+        self.word_hidden_size = word_hidden_size
+
         self.concept_and_local_feature_predictor = ConceptAndLocalFeaturePredictor(self.model_name,
                     hidden_size = self.hidden_size, output_size = self.output_size, pretrained = self.pretrained)
 
@@ -72,30 +76,81 @@ class ImageCaptioningModel(nn.Module):
         self.visual_transform_layer_transpose = nn.Linear(self.output_size, self.output_size, bias = True)
 
         # TODO: Add the layers corresponding to image captioning task
+        # NOTE: For word attention
+        self.embedding_layer = nn.Linear(self.vocab_size, self.word_hidden_size, bias = False)
+        self.word_attention_layer = nn.Linear(self.word_hidden_size, self.output_size, bias = True)
+        self.image_rep_attention_layer = nn.Linear(self.output_size, 1, bias = False)
+
+        # NOTE: Gate for image rep
+        self.gate_image_rep_layer = nn.Linear(self.output_size, 1, bias = True)
+        self.image_rep_linear = nn.Linear(2 * self.output_size, self.output_size, bias = True)
+
+        # TODO: Implement sentence generation and debug the code
+        self.sentence_generation_gru = nn.GRU(self.output_size, self.output_size, bidirectional = False, batch_first = True)
+        self.probability_dense = nn.Linear(self.output_size, self.vocab_size)
 
 
     def forward(self, images, word_embeddings):
-
+        
+        # vI
         concept_vector = self.concept_and_local_feature_predictor.concept_forward(images)
+        # vc
         concept_set = ((concept_vector > torch.tensor(self.epsilon)).float() * 1).unsqueeze(-1) * torch.eye(self.output_size).reshape((1, 
                             self.output_size, self.output_size)).repeat(concept_vector.size(0), 1, 1).to(self.device)
 
         # NOTE: Local feature is of shape (7, 7, 512), but in the paper, it is (14, 14, 512)
         # Will check back later how to obtain conv5_4 feature map without max pooling
         
+        # vl
         local_feature = self.concept_and_local_feature_predictor.local_feature_forward(images)
         local_feature = local_feature.view((local_feature.shape[0], local_feature.shape[1], -1))
-        
+
         local_feature_out, local_feature_hidden = self.local_image_gru(local_feature)
         local_feature_out = local_feature_out.view(local_feature_out.size(0), local_feature.size(1), 2, self.output_size)
         local_feature_out = local_feature_out.reshape((2, local_feature_out.size(0), local_feature.size(1), -1))
+        
+        # vl_prime ==> bs x 512 x 512
         visual_representation = local_feature_out[0] + local_feature_out[1]
 
+        # vI_prime ==> bs x 1024
         final_image_rep = self.semantic_guided_attention(concept_set, visual_representation)
 
         # TODO: Write code for image captioning, i.e., word attention and sentence generation. 
         # NOTE: In this function, return concept vector for concept prediction loss
+        initial_hidden_state = torch.zeros(word_embeddings.size()[0], self.output_size).to(self.device)
+        
+        all_probability_distributions = []
+        for idx, word_embedding in enumerate(word_embeddings): 
+            probability_distribution = self.get_probability_distribution(word_embedding, final_image_rep[idx], visual_representation[idx], initial_hidden_state[idx])
+            all_probability_distributions.append(probability_distribution)
 
+        all_probability_distributions = torch.stack(all_probability_distributions).squeeze()
+
+        return concept_vector, all_probability_distributions
+
+    def get_probability_distribution(self, word_embedding, final_image_rep, visual_representation, initial_hidden_state):
+        
+        # hidden_states_and_output = {"hidden_states": [], "outputs": []}
+        probability_distribution = []
+        prev_hidden_state = initial_hidden_state
+
+        for one_hot_vector in word_embedding:
+            word_vector = self.embedding_layer(one_hot_vector)
+            word_related_region_rep = self.word_guided_attention(visual_representation, prev_hidden_state)
+            gated_image_rep = self.gated_image_representation(final_image_rep, prev_hidden_state)
+            gru_hidden_state = word_related_region_rep + gated_image_rep + prev_hidden_state
+
+            # NOTE: Some dimensionality problem or misunderstanding of paper. Read the paper carefully. :)))
+            gru_output = self.sentence_generation_gru(word_vector.unsqueeze(0).unsqueeze(0), gru_hidden_state.unsqueeze(0).unsqueeze(0))
+
+            # TODO: This part is looking erroneous. Look at it again. Problem in understanding the paper. :)
+            prob_dist = self.probability_dense(gru_output[0].squeeze(0))
+            probability_distribution.append(prob_dist)
+            prev_hidden_state = gru_output[1].squeeze(0).squeeze(0)
+
+        probability_distribution = torch.stack(probability_distribution)
+
+        return probability_distribution
 
     def semantic_guided_attention(self, concept_set, visual_representation):
         
@@ -116,3 +171,19 @@ class ImageCaptioningModel(nn.Module):
 
         final_image_rep = torch.cat([concept_based_image_rep, region_based_concept_rep], dim = 1)
         return final_image_rep
+
+    def word_guided_attention(self, visual_representation, prev_hidden_state):
+        
+        attention_rep = self.image_rep_attention_layer(visual_representation).T + self.word_attention_layer(prev_hidden_state)
+        
+        attention_weights = torch.tanh(attention_rep)
+        attention_weights = attention_weights / torch.sum(attention_weights, dim = 1)
+        
+        word_related_region_rep = torch.sum(visual_representation * attention_weights.T, dim = 1)
+        return word_related_region_rep
+
+    def gated_image_representation(self, image_rep, prev_hidden_state):
+        gate = self.gate_image_rep_layer(prev_hidden_state)
+        image_rep = self.image_rep_linear(image_rep)
+        # print(image_rep.size())
+        return gate * image_rep

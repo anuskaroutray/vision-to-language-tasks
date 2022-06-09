@@ -9,7 +9,7 @@ from utils.env import set_seed
 from torch.utils.data import DataLoader
 from data.dataloader import ImageCaptionDataset
 # from utils.test import test_retrieval, TestCallback
-from utils.trainer import train
+from utils.trainer import train_captioning_model, evaluate_captioning_model
 # from src.model import LanguageModel, VisionModel, DualEncoder, SpatialInformationAggregatorModule
 from src.model import ImageCaptioningModel
 
@@ -17,18 +17,18 @@ if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--batch_size', default = 128, type = int)	# 64, 128
-	parser.add_argument('--dataset', default = 'flickr8k', type = str, choices=['coco', 'flickr30k', 'flickr8k'])
+	parser.add_argument('--dataset', default = 'flickr8k', type = str, choices=['coco', 'flickr30k', 'flickr8k', 'toronto-cocoqa'])
 	parser.add_argument('--max_epochs', default = 10, type = int)
 	parser.add_argument('--dropout', default = 0.4, type = float)
 	parser.add_argument('--eval', default = True, type = bool)
 	parser.add_argument('--gradient_clip_val', default = 30.0, type = float)
 	parser.add_argument('--gpus', default = "0,1", type = str) # 1 -> [1]; 0,1 -> [0, 1]
 	parser.add_argument('--image_resize', default = (224, 224), type = tuple)
-	parser.add_argument('--learning_rate', default = 1e-5, type = float)
+	parser.add_argument('--learning_rate', default = 1e-6, type = float)
 	parser.add_argument('--max_length_caption', default = 64, type = int)
 	parser.add_argument('--preprocess_text', default = True, type = bool) # With and without
 	parser.add_argument('--seed', default = 0, type = int)
-	parser.add_argument('--test', default = False, type = bool)
+	parser.add_argument('--test', default = True, type = bool)
 	parser.add_argument('--test_shuffle', default = False, type = bool)
 	parser.add_argument('--train', default = True, type = bool)
 	parser.add_argument('--train_shuffle', default = True, type = bool)
@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
 	device = torch.device("cpu")
 	if torch.cuda.is_available(): 
-		device = torch.device("cuda:1")
+		device = torch.device("cuda:0")
 		
 	train_dataloader, validation_dataloader, test_dataloader = None, None, None
 	if args.train:
@@ -71,9 +71,11 @@ if __name__ == "__main__":
 				image_resize = args.image_resize, warn_grayscale = args.warn_grayscale, eval = args.eval)
 		test_dataloader = DataLoader(test_data, batch_size = args.batch_size, shuffle = args.test_shuffle, collate_fn = test_data.collater)
 
+	vocab_size = len(train_data.vocabulary)
 	model = ImageCaptioningModel(args.model_name, input_size = args.input_size, hidden_size = args.hidden_size, output_size = args.output_size, 
-								pretrained = args.pretrained, bidirectional = args.bidirectional, epsilon = args.epsilon, device = device)
-
+								pretrained = args.pretrained, bidirectional = args.bidirectional, epsilon = args.epsilon, device = device,
+								vocab_size = vocab_size)
 	model = model.to(device)
 
-	train(model, train_dataloader, validation_dataloader, args, device = device)
+	train_captioning_model(model, train_dataloader, validation_dataloader, args, device = device)
+	evaluate_captioning_model(model, test_dataloader, args, device = device)

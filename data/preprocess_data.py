@@ -25,7 +25,6 @@ def preprocess(data_path, dataset_name = "coco", split = "all"):
 
     if dataset_name == "coco":
         data = json.load(open(data_path, "r"))
-        # val_images = json.load(open('./datasets/coco/val_images.json'))
 
         if split == 'test':
             raise ValueError("'test' split has no annotations")
@@ -101,6 +100,54 @@ def preprocess(data_path, dataset_name = "coco", split = "all"):
             if i % 5 == 0:
                 preprocessed_dict[Id] = {"image_path": image_path, "captions": []}
             preprocessed_dict[Id]["captions"].append(caption)
+
+    elif dataset_name == "toronto-cocoqa":
+
+        data = json.load(open(data_path, "r"))
+        train_questions = open("datasets/toronto-cocoqa/train/questions.txt", "r").readlines()
+        train_answers = open("datasets/toronto-cocoqa/train/types.txt", "r").readlines()
+        train_image_ids = open("datasets/toronto-cocoqa/train/img_ids.txt", "r").readlines()
+
+        val_questions = open("datasets/toronto-cocoqa/test/questions.txt", "r").readlines()
+        val_answers = open("datasets/toronto-cocoqa/test/types.txt", "r").readlines()
+        val_image_ids = open("datasets/toronto-cocoqa/test/img_ids.txt", "r").readlines()
+
+        ques_ans_dict = {}
+
+        if "train" or "all" in split:
+            for i in range(len(val_image_ids)):
+                ques_ans_dict[int(train_image_ids[i][:-1])] = {"question": preprocess_caption(train_questions[i][:-1]), 
+                                                                "answer": int(train_answers[i][:-1])}
+        elif "val" in split:
+            for i in range(len(val_image_ids)):
+                ques_ans_dict[int(val_image_ids[i][:-1])] = {"question": preprocess_caption(val_questions[i][:-1]),
+                                                             "answer": int(val_answers[i][:-1])}       
+
+        if split == 'test':
+            raise ValueError("'test' split has no annotations")
+
+        for image_dict in tqdm(data["images"], position = 0, leave = True):
+            Id = image_dict["id"]
+            image_path = image_dict["file_name"]
+            
+            if "train" in image_path:
+                dir_path = "./datasets/coco/train2014"
+            elif "val" in image_path:
+                dir_path = "./datasets/coco/val2014"
+            
+            if Id not in ques_ans_dict.keys():
+                continue
+
+            preprocessed_dict[Id] = {"image_path": os.path.join(dir_path, image_path), 
+                                    "question": ques_ans_dict[Id]["question"],
+                                    "answer": ques_ans_dict[Id]["answer"],
+                                    "captions": []}
+
+        for annotation_dict in data["annotations"]:
+            image_id = annotation_dict["image_id"]
+            caption = annotation_dict["caption"]
+            if image_id in preprocessed_dict:
+                preprocessed_dict[image_id]["captions"].append(caption)
 
     return preprocessed_dict
 
@@ -211,7 +258,7 @@ def build_concept_vocabulary(dataset = "coco", split = "all", num_concepts = 512
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', default = 'coco', type = str, choices=['coco', 'flickr8k', 'flickr30k'])
+    parser.add_argument('--dataset', default = 'toronto-cocoqa', type = str, choices=['coco', 'flickr8k', 'flickr30k', 'toronto-cocoqa'])
     parser.add_argument('--data_path', type = str)
     parser.add_argument('--split', default='train', type = str, choices=['train', 'val', 'test', 'all'])
     parser.add_argument('--preprocess', default = False, type = bool)
