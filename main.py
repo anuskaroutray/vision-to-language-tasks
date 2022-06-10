@@ -1,5 +1,4 @@
 # Import the required libraries
-
 import os
 import torch
 import argparse
@@ -15,6 +14,7 @@ warnings.filterwarnings("ignore")
 
 if __name__ == "__main__":
 
+	# Standard Argument parsing
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--batch_size', default = 128, type = int)	# 64, 128
 	parser.add_argument('--bidirectional', default = True, type = bool)
@@ -52,9 +52,11 @@ if __name__ == "__main__":
 	print("\nArgument List:\n")
 	print(args, end = "\n\n")
 
+	# Set random seed to experiments
 	set_seed(args.seed)
 	args.gpus = [int(item) for item in args.gpus.split(',')]
 
+	# Set the device
 	device = torch.device("cpu")
 	if torch.cuda.is_available(): 
 		device = torch.device("cuda:0")
@@ -68,6 +70,7 @@ if __name__ == "__main__":
 		print("************************************")
 		print()
 
+		# Create the training, validation and test dataloaders
 		if args.train:
 			train_data = ImageCaptionDataset(args.dataset, preprocess_text = args.preprocess_text, split = "train", max_length_caption = args.max_length_caption,
 					image_resize = args.image_resize, warn_grayscale = args.warn_grayscale, eval = False)
@@ -83,12 +86,16 @@ if __name__ == "__main__":
 					image_resize = args.image_resize, warn_grayscale = args.warn_grayscale, eval = args.eval)
 			test_dataloader = DataLoader(test_data, batch_size = args.batch_size, shuffle = args.test_shuffle, collate_fn = test_data.collater)
 
+		# Obtain the vocabulary size
 		vocab_size = len(train_data.vocabulary)
+
+		# Create the model
 		model = ImageCaptioningModel(args.model_name, input_size = args.input_size, hidden_size = args.hidden_size, output_size = args.output_size, 
 									pretrained = args.pretrained, bidirectional = args.bidirectional, epsilon = args.epsilon, device = device,
 									vocab_size = vocab_size)
 		model = model.to(device)
 
+		# Train the model
 		train_captioning_model(model, train_dataloader, validation_dataloader, args, device = device)
 		if args.test:
 			evaluate_captioning_model(model, test_dataloader, args, device = device)
@@ -100,6 +107,7 @@ if __name__ == "__main__":
 		print("************************************")
 		print()
 
+		# Create the train, validation and test dataloaders
 		if args.train:
 			train_data = VisualQuestionAnsweringDataset(args.dataset, preprocess_text = args.preprocess_text, split = "train", max_length_caption = args.max_length_caption,
 					image_resize = args.image_resize, warn_grayscale = args.warn_grayscale, eval = False)
@@ -115,12 +123,16 @@ if __name__ == "__main__":
 					image_resize = args.image_resize, warn_grayscale = args.warn_grayscale, eval = args.eval)
 			test_dataloader = DataLoader(test_data, batch_size = args.batch_size, shuffle = args.test_shuffle, collate_fn = test_data.collater)
 
+		# Obtain the vocabulary size
 		vocab_size = len(train_data.vocabulary)
+
+		# Create the model
 		model = VisualQuestionAnsweringModel(args.model_name, input_size = args.input_size, hidden_size = args.hidden_size, output_size = args.output_size, 
 									pretrained = args.pretrained, bidirectional = args.bidirectional, epsilon = args.epsilon, device = device,
 									vocab_size = vocab_size, num_classes = args.num_classes)
 		model = model.to(device)
 
+		# Train and evaluate the model
 		train_vqa_model(model, train_dataloader, validation_dataloader, args, device = device)
 		if args.test:
 			evaluate_vqa_model(model, test_dataloader, args, device = device)

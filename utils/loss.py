@@ -4,6 +4,7 @@ import torchmetrics
 import torch.nn as nn
 import torch.nn.functional as F
 
+# Class to implement image captioning loss module
 class CaptioningLoss(nn.Module):
 
     def __init__(self, temperature = 0.7):
@@ -14,6 +15,7 @@ class CaptioningLoss(nn.Module):
         all_probability_distributions = nn.Softmax(dim = 2)(all_probability_distributions)
         return (-torch.sum(all_probability_distributions))
 
+# Class to implement visual question answering loss module
 class VQALoss(nn.Module):
 
     def __init__(self, temperature = 0.7):

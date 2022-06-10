@@ -15,6 +15,7 @@ from data.preprocess_data import preprocess
 from torchtext.data.utils import get_tokenizer
 from torch.utils.data import Dataset, DataLoader, TensorDataset
 
+# Class to create the Image Captioninig Dataset
 class ImageCaptionDataset(Dataset):
 
 	def __init__(self, dataset, preprocess_text = True, split = "train", max_length_caption = 64,
@@ -85,7 +86,7 @@ class ImageCaptionDataset(Dataset):
 
 		return image, word_embeddings, ground_concept_vector
 
-	# def get_one_hot_word_vector(self, words, keys: Union[str, Iterable], max_length):
+	# Function to obtain one hot word vector
 	def get_one_hot_word_vector(self, words, max_length):
 		
 		if isinstance(words, str):
@@ -100,6 +101,7 @@ class ImageCaptionDataset(Dataset):
 
 		return one_hot
 
+	# Function to create the concept vector
 	def get_concept_vector(self, words):
 
 		concept_vector = torch.zeros((self.num_concepts, 1))
@@ -109,6 +111,7 @@ class ImageCaptionDataset(Dataset):
 
 		return concept_vector
 
+	# Function to collate batches of data
 	def collater(self, items):
 
 		batch = {"image": torch.stack([x[0] for x in items], dim = 0),
@@ -116,6 +119,7 @@ class ImageCaptionDataset(Dataset):
 				"ground_concept_vector": torch.stack([x[2] for x in items], dim = 0)}
 		return batch
 
+	# Function to preprocess text 
 	def preprocess_caption(self, caption):
 
 		caption = re.sub('[^a-zA-Z0-9.?,]', ' ', caption)
@@ -138,6 +142,7 @@ class ImageCaptionDataset(Dataset):
 
 		return caption
 
+# Class to create the Visual Question Answering dataset
 class VisualQuestionAnsweringDataset(Dataset):
 
 	def __init__(self, dataset, preprocess_text = True, split = "train", max_length_caption = 64,
@@ -221,7 +226,7 @@ class VisualQuestionAnsweringDataset(Dataset):
 
 		return image, word_embeddings, ground_concept_vector, question_embeddings, answer
 
-	# def get_one_hot_word_vector(self, words, keys: Union[str, Iterable], max_length):
+	# Function to create the one hot word vector
 	def get_one_hot_word_vector(self, words, max_length):
 		
 		if isinstance(words, str):
@@ -236,6 +241,7 @@ class VisualQuestionAnsweringDataset(Dataset):
 
 		return one_hot
 
+	# Function to obtain the concept vector
 	def get_concept_vector(self, words):
 
 		concept_vector = torch.zeros((self.num_concepts, 1))
@@ -245,6 +251,7 @@ class VisualQuestionAnsweringDataset(Dataset):
 
 		return concept_vector
 
+	# Function to collate batches of data
 	def collater(self, items):
 
 		batch = {"image": torch.stack([x[0] for x in items], dim = 0),
@@ -254,6 +261,7 @@ class VisualQuestionAnsweringDataset(Dataset):
 				"answer": torch.stack([x[4] for x in items], dim = 0)}
 		return batch
 
+	# Function to preprocess text
 	def preprocess_caption(self, caption):
 
 		caption = re.sub('[^a-zA-Z0-9.?,]', ' ', caption)

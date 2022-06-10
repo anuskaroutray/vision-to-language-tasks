@@ -1,28 +1,28 @@
 # Import the required libraries
+import nltk
+import torch
 import requests
+import torchtext
+import regex as re
 import urllib.request
 from PIL import Image
 from tqdm import tqdm
 from io import BytesIO
 import os, json, argparse, csv
-
-from typing import Union, Iterable
-import torchtext
-from torchtext.data.utils import get_tokenizer
-# from torchtext.vocab import build_vocab_from_iterator
-from src.vocab import build_vocab_from_iterator
-import torch
 import torch.nn.functional as F
-
-import regex as re
-
-import nltk
-nltk.download('stopwords')
 from nltk.corpus import stopwords
+from typing import Union, Iterable
+from torchtext.data.utils import get_tokenizer
+from src.vocab import build_vocab_from_iterator
 
+nltk.download('stopwords')
+
+# Function to create preprocessed data dictionary
 def preprocess(data_path, dataset_name = "coco", split = "all"):
+    
     preprocessed_dict = {}
 
+    # For MS coco dataset
     if dataset_name == "coco":
         data = json.load(open(data_path, "r"))
 
@@ -45,6 +45,7 @@ def preprocess(data_path, dataset_name = "coco", split = "all"):
             if image_id in preprocessed_dict:
                 preprocessed_dict[image_id]["captions"].append(caption)
 
+    # For Flickr30k dataset
     elif dataset_name == "flickr30k":
         data = json.load(open(data_path, "r"))
         dir_path = "./datasets/flickr30k/flickr30k-images"
@@ -64,6 +65,7 @@ def preprocess(data_path, dataset_name = "coco", split = "all"):
                     caption = token_sent_dict["raw"]
                     preprocessed_dict[image_id]["captions"].append(caption)
 
+    # For Flickr8k dataset
     elif dataset_name == "flickr8k":
 
         with open('./datasets/flickr8k/Flickr_8k.trainImages.txt') as f:
@@ -101,6 +103,7 @@ def preprocess(data_path, dataset_name = "coco", split = "all"):
                 preprocessed_dict[Id] = {"image_path": image_path, "captions": []}
             preprocessed_dict[Id]["captions"].append(caption)
 
+    # For Toronto COCO-QA dataset
     elif dataset_name == "toronto-cocoqa":
 
         data = json.load(open(data_path, "r"))
@@ -151,6 +154,7 @@ def preprocess(data_path, dataset_name = "coco", split = "all"):
 
     return preprocessed_dict
 
+# Function to obtain the word frequency
 def get_word_frequency(words):
 
     word_freq = dict()
@@ -163,7 +167,7 @@ def get_word_frequency(words):
 
     return word_freq
 
-# NOTE: Used to build the general vocabulary
+# Function to preprocess caption
 def preprocess_caption(caption):
 
     caption = re.sub('[^a-zA-Z0-9.?,]', ' ', caption)
@@ -186,7 +190,7 @@ def preprocess_caption(caption):
 
     return caption
 
-# Used for concept vocabulary
+# Function to preprocess for concept vocabulary
 def preprocess_caption_for_concept(caption, tokenizer):
 
     caption = re.sub('[^a-zA-Z0-9.?,]', ' ', caption)
@@ -220,6 +224,7 @@ def preprocess_caption_for_concept(caption, tokenizer):
 
     return filtered_caption
 
+# Function to create the overall vocabulary
 def build_vocabulary(dataset = "coco", split = "train"):
 
     preprocessed_dict = json.load(open(f'./datasets/{dataset}/{split}_image_captions.json', 'r'))
@@ -239,6 +244,7 @@ def build_vocabulary(dataset = "coco", split = "train"):
 
     torch.save(vocabulary, f'./datasets/{dataset}/{split}_vocabulary.pth')
 
+# Function to build the concept vocabulary
 def build_concept_vocabulary(dataset = "coco", split = "all", num_concepts = 512):
 
     preprocessed_dict = json.load(open(f'./datasets/{dataset}/{split}_image_captions.json', 'r'))
@@ -275,8 +281,6 @@ if __name__ == "__main__":
     
     if args.get_vocab:
         build_vocabulary(dataset = args.dataset, split = args.split)
-        # NOTE: To use the vocabulary to get one hot vector, use following line of code
-        #           one_hot = get_one_hot_word_vector(vocabulary, ["studio", "constructions"])
 
     if args.build_concept_vocab:
         build_concept_vocabulary(dataset = args.dataset, split = args.split)
