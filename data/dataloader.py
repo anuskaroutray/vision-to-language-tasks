@@ -1,27 +1,19 @@
-# TODO: Implement two dataloading classes
-#   1. ImageCaptionDataset
-#   2. VQADataset
-
 # Import the required libraries
 import os
 import json
-from sre_parse import Tokenizer
-from data.preprocess_data import preprocess
 import torch
 import warnings
+import numpy as np
 import regex as re
 from tqdm import tqdm
 from PIL import Image
-from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader, TensorDataset
-import numpy as np
 from copy import deepcopy
-
-from torchtext.data.utils import get_tokenizer
 import torch.nn.functional as F
-
-# TODO: Update the code for word representation into one hot form
-# Image Caption Dataset for coco, flickr30k, flickr8k
+from sre_parse import Tokenizer
+from torchvision import transforms
+from data.preprocess_data import preprocess
+from torchtext.data.utils import get_tokenizer
+from torch.utils.data import Dataset, DataLoader, TensorDataset
 
 class ImageCaptionDataset(Dataset):
 
@@ -225,7 +217,7 @@ class VisualQuestionAnsweringDataset(Dataset):
 		tokenized_question = self.tokenizer(question)
 		question_embeddings = self.get_one_hot_word_vector(tokenized_question, self.max_length_caption)
 
-		answer = self.answers[idx]
+		answer = torch.tensor(self.answers[idx])
 
 		return image, word_embeddings, ground_concept_vector, question_embeddings, answer
 

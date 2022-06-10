@@ -3,13 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 from nlgeval import compute_individual_metrics
-from utils.loss import CaptioningLoss
+from utils.loss import CaptioningLoss, VQALoss
 
 def train_captioning_model(model, train_dataloader, validation_dataloader, args, optimizer = None, device = "cpu",
 			temperature = 0.7):
 
 	model.train()
-	# NOTE: Set criterion
 	captioning_criterion = CaptioningLoss()
 	image_concepts_criterion = nn.BCEWithLogitsLoss()
 
@@ -36,8 +35,6 @@ def train_captioning_model(model, train_dataloader, validation_dataloader, args,
 		evaluate_captioning_model(model, train_dataloader, args, device = device, temperature = temperature)
 		evaluate_captioning_model(model, validation_dataloader, args, device = device, temperature = temperature)
 	
-	# TODO: Write code for logging
-
 def evaluate_captioning_model(model, dataloader, args, device = "cpu", temperature = 0.7):
 
 	captioning_criterion = CaptioningLoss()
@@ -73,3 +70,72 @@ def evaluate_captioning_metrics(true_captions, predicted_captions):
 	print("The evaluation metrics are as follows: \n")
 	for key, val in all_metrics.items():
 		print(f"{key}:\t{val}")
+
+def train_vqa_model(model, train_dataloader, validation_dataloader, args, optimizer = None, device = "cpu",
+			temperature = 0.7):
+
+	model.train()
+	vqa_criterion = VQALoss()
+	image_concepts_criterion = nn.BCEWithLogitsLoss()
+
+	if not optimizer:
+		optimizer = torch.optim.Adam(model.parameters(), lr = args.learning_rate, weight_decay = args.weight_decay)
+
+	for epoch in range(args.max_epochs):
+		total_loss = 0
+		total = 0
+		correct = 0
+		with tqdm(train_dataloader, unit = "batch", position = 0, leave = True) as tepoch:
+			for i, batch in enumerate(tepoch):
+				tepoch.set_description(f"Epoch {epoch}")
+
+				concept_vector, answer_distribution = model.forward(batch["image"].to(device), batch["word_embeddings"].to(device),
+																	batch["question_embeddings"].to(device))
+				loss = vqa_criterion(answer_distribution, batch["answer"].to(device)) + \
+						image_concepts_criterion(concept_vector, batch["ground_concept_vector"].squeeze().to(device))
+
+				optimizer.zero_grad()
+				loss.backward()
+				optimizer.step()
+
+				total_loss += loss.item()
+				tepoch.set_postfix(loss = total_loss / (i+1))
+
+				_, predicted = torch.max(answer_distribution, dim = 1)
+				total += batch["answer"].size(0)
+
+				correct += (predicted == batch["answer"].to(device)).sum().item()
+				tepoch.set_postfix(acc = correct / total)
+
+		evaluate_vqa_model(model, train_dataloader, args, device = device, temperature = temperature)
+		evaluate_vqa_model(model, validation_dataloader, args, device = device, temperature = temperature)
+	
+def evaluate_vqa_model(model, dataloader, args, device = "cpu", temperature = 0.7):
+
+	model.eval()
+	vqa_criterion = VQALoss()
+	image_concepts_criterion = nn.BCEWithLogitsLoss()
+
+	all_ground_answers = []
+	all_predicted_answers = []
+
+	total_loss = 0
+	total = 0
+	correct = 0
+	with tqdm(dataloader, unit = "batch", position = 0, leave = True) as tepoch:
+		for i, batch in enumerate(tepoch):
+			tepoch.set_description(f"Evaluating")
+
+			concept_vector, answer_distribution = model.forward(batch["image"].to(device), batch["word_embeddings"].to(device),
+																batch["question_embeddings"].to(device))
+			loss = vqa_criterion(answer_distribution, batch["answer"].to(device)) + \
+					image_concepts_criterion(concept_vector, batch["ground_concept_vector"].squeeze().to(device))
+
+			total_loss += loss.item()
+			tepoch.set_postfix(loss = total_loss / (i+1))
+
+			_, predicted = torch.max(answer_distribution, dim = 1)
+			total += batch["answer"].size(0)
+
+			correct += (predicted == batch["answer"].to(device)).sum().item()
+			tepoch.set_postfix(acc = correct / total)
